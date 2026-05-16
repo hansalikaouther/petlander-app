@@ -458,8 +458,23 @@ class _EditAnimalSheetState extends ConsumerState<_EditAnimalSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Modifier ${widget.animal.nom}',
-                style: AppTextStyles.headlineMedium),
+            // ── En-tête avec bouton retour ─────────────────────────────────
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.pop(context),
+                  tooltip: 'Retour',
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'Modifier ${widget.animal.nom}',
+                    style: AppTextStyles.headlineMedium,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             _buildPhotoPicker(),
             const SizedBox(height: 16),

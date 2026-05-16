@@ -1,11 +1,11 @@
 {
-    "name": "petlander_app",
-    "short_name": "petlander_app",
+    "name": "Petlander - Track, Care And Love",
+    "short_name": "Petlander",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#9C27B0",
+    "description": "Carnet de santé numérique pour vos animaux domestiques",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

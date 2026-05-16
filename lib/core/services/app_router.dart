@@ -153,7 +153,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                           GoRoute(
                             path: 'add',
                             builder: (_, st) => AddVaccinationScreen(
-                                animalId: st.pathParameters['id']!),
+                              animalId: st.pathParameters['id']!,
+                              prefilledVaccinId: st.extra as String?,
+                            ),
                           ),
                         ],
                       ),

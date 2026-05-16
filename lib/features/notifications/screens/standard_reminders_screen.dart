@@ -13,6 +13,9 @@ import '../../../shared/widgets/loading_paw.dart';
 import '../../animals/providers/animals_providers.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../notifications/data/notifications_repository.dart';
+import '../../notifications/providers/notifications_providers.dart';
+import '../../../shared/models/notification_item.dart';
+import 'package:intl/intl.dart';
 
 class StandardRemindersScreen extends ConsumerStatefulWidget {
   const StandardRemindersScreen({super.key});
@@ -240,11 +243,84 @@ class _StandardRemindersScreenState
                   ),
                 );
               }),
+
+              const SizedBox(height: 28),
+
+              // ── Section : Mes rappels programmes ─────────────────────────
+              FadeInUp(
+                delay: const Duration(milliseconds: 200),
+                child: _SectionTitle(
+                  icon: Icons.event_available_outlined,
+                  label: 'Mes rappels programmés',
+                  color: AppColors.success,
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildSavedRemindersList(),
             ],
           );
         },
       ),
     );
+  }
+
+  // ── Liste des rappels programmes (Supabase) ─────────────────────────────
+  Widget _buildSavedRemindersList() {
+    final remindersAsync = ref.watch(remindersProvider);
+    return remindersAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Text('Erreur : $e',
+          style: AppTextStyles.bodySmall.copyWith(color: AppColors.danger)),
+      data: (reminders) {
+        if (reminders.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Text(
+              'Aucun rappel programmé. Cree-en un ci-dessus !',
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.textSecondary),
+            ),
+          );
+        }
+        return Column(
+          children: reminders
+              .map((r) => _SavedReminderCard(
+                    item: r,
+                    onDelete: () => _deleteReminder(r),
+                  ))
+              .toList(),
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteReminder(NotificationItem item) async {
+    try {
+      await NotificationsRepository().delete(item.id);
+      ref.invalidate(remindersProvider);
+      ref.invalidate(notificationsProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Rappel supprimé'),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Erreur : $e'),
+        backgroundColor: AppColors.danger,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 
   // ── Sélecteur de date pour rappel perso ───────────────────────────────────
@@ -302,16 +378,6 @@ class _StandardRemindersScreenState
       return;
     }
 
-    if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text(
-            'Notifications non disponibles sur navigateur — utilise l\'app Android.'),
-        backgroundColor: AppColors.warning,
-        behavior: SnackBarBehavior.floating,
-      ));
-      return;
-    }
-
     setState(() => _schedulingCustom = true);
     try {
       await NotificationService.requestPermissions();
@@ -356,6 +422,8 @@ class _StandardRemindersScreenState
           contenu: notifBody,
           type: 'rappel_perso',
         );
+        ref.invalidate(remindersProvider);
+        ref.invalidate(notificationsProvider);
       }
 
       if (!mounted) return;
@@ -390,16 +458,6 @@ class _StandardRemindersScreenState
   Future<void> _activateStandard(StandardReminder r) async {
     if (_selectedAnimal == null) return;
 
-    if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text(
-            'Notifications non disponibles sur navigateur — utilise l\'app Android.'),
-        backgroundColor: AppColors.warning,
-        behavior: SnackBarBehavior.floating,
-      ));
-      return;
-    }
-
     await NotificationService.requestPermissions();
     if (!mounted) return;
 
@@ -423,6 +481,22 @@ class _StandardRemindersScreenState
         body: r.message,
         scheduledAt: scheduledAt,
       );
+
+      // Enregistre dans le centre de notifications Supabase
+      final user = ref.read(currentAuthUserProvider);
+      if (user != null) {
+        try {
+          await NotificationsRepository().create(
+            userId: user.id,
+            titre: '${r.label} — ${_selectedAnimal!.nom}',
+            contenu: r.message,
+            type: 'rappel_standard',
+          );
+          ref.invalidate(remindersProvider);
+          ref.invalidate(notificationsProvider);
+        } catch (_) {}
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
@@ -516,6 +590,70 @@ class _ReminderCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10)),
               ),
               child: const Text('Activer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Carte affichant un rappel deja programme (depuis Supabase).
+class _SavedReminderCard extends StatelessWidget {
+  final NotificationItem item;
+  final VoidCallback onDelete;
+  const _SavedReminderCard({required this.item, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final isPerso = item.type == 'rappel_perso';
+    final color = isPerso ? AppColors.accent : AppColors.primary;
+    final dateStr = DateFormat('dd/MM/yyyy à HH:mm', 'fr_FR').format(item.dateEnvoi);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                isPerso ? Icons.notifications_active : Icons.repeat,
+                color: color,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.titre,
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(fontWeight: FontWeight.w600)),
+                  if (item.contenu != null && item.contenu!.isNotEmpty)
+                    Text(
+                      item.contenu!,
+                      style: AppTextStyles.caption,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  Text(
+                    'Programmé le $dateStr',
+                    style: AppTextStyles.caption
+                        .copyWith(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+              onPressed: onDelete,
+              tooltip: 'Supprimer',
             ),
           ],
         ),

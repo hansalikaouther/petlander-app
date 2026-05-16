@@ -10,14 +10,24 @@ class SupabaseService {
 
   static SupabaseClient get client => Supabase.instance.client;
 
-  static Future<void> init() async {
-    final url = dotenv.env['SUPABASE_URL'];
-    final anonKey = dotenv.env['SUPABASE_ANON_KEY'];
+  // Fallback values (anon key is safe to expose - it's the public client key
+  // already shipped in every Flutter web build).
+  static const _fallbackUrl = 'https://qtfkmclbbinuflembpob.supabase.co';
+  static const _fallbackAnonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF0ZmttY2xiYmludWZsZW1icG9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NTgxNTksImV4cCI6MjA5MzEzNDE1OX0.Ds6fAdB_cRTxyYdNWAMlPdQoH33u51A24HV6cz0j7wQ';
 
-    if (url == null || url.isEmpty || anonKey == null || anonKey.isEmpty) {
-      throw StateError(
-        'Variables SUPABASE_URL et SUPABASE_ANON_KEY manquantes dans le fichier .env',
-      );
+  static Future<void> init() async {
+    // Prefer .env if available (local dev), otherwise use hardcoded fallback
+    // (needed on Netlify which blocks hidden files like .env).
+    String url = _fallbackUrl;
+    String anonKey = _fallbackAnonKey;
+    try {
+      final envUrl = dotenv.env['SUPABASE_URL'];
+      final envKey = dotenv.env['SUPABASE_ANON_KEY'];
+      if (envUrl != null && envUrl.isNotEmpty) url = envUrl;
+      if (envKey != null && envKey.isNotEmpty) anonKey = envKey;
+    } catch (_) {
+      // dotenv not loaded or .env not accessible — keep fallback values
     }
 
     await Supabase.initialize(

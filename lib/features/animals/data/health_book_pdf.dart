@@ -35,8 +35,23 @@ class HealthBookPdf {
             ),
             child: pw.Row(
               children: [
-                pw.Text('🐾',
-                    style: const pw.TextStyle(fontSize: 32)),
+                pw.Container(
+                  width: 38,
+                  height: 38,
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromInt(0xFF9C27B0),
+                    shape: pw.BoxShape.circle,
+                  ),
+                  alignment: pw.Alignment.center,
+                  child: pw.Text(
+                    'P',
+                    style: pw.TextStyle(
+                      fontSize: 22,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white,
+                    ),
+                  ),
+                ),
                 pw.SizedBox(width: 12),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,

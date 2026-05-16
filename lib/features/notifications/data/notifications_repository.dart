@@ -17,6 +17,19 @@ class NotificationsRepository {
         .toList();
   }
 
+  /// Recupere uniquement les rappels (personnalises et standards) de l'utilisateur.
+  Future<List<NotificationItem>> fetchReminders(String userId) async {
+    final res = await _c
+        .from('notification')
+        .select()
+        .eq('id_utilisateur', userId)
+        .inFilter('type', ['rappel_perso', 'rappel_standard'])
+        .order('date_envoi', ascending: false);
+    return (res as List)
+        .map((e) => NotificationItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<int> countUnread(String userId) async {
     final res = await _c
         .from('notification')

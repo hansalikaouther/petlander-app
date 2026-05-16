@@ -19,3 +19,12 @@ final unreadNotificationsCountProvider = FutureProvider<int>((ref) async {
   if (user == null) return 0;
   return ref.read(notificationsRepositoryProvider).countUnread(user.id);
 });
+
+/// Liste des rappels (personnalises + standards) programmes par l'utilisateur,
+/// affichee dans l'ecran "Rappels".
+final remindersProvider =
+    FutureProvider<List<NotificationItem>>((ref) async {
+  final user = ref.watch(currentAuthUserProvider);
+  if (user == null) return [];
+  return ref.read(notificationsRepositoryProvider).fetchReminders(user.id);
+});

@@ -1,9 +1,11 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/services/app_router.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/loading_paw.dart';
 import '../../animals/providers/animals_providers.dart';
@@ -78,8 +80,10 @@ class RecommendedVaccinesScreen extends ConsumerWidget {
                             trailing: const Icon(Icons.add_circle_outline,
                                 color: AppColors.primaryDark),
                             onTap: () {
-                              Navigator.pop(context);
-                              // Retour au flow d'ajout vaccin
+                              context.push(
+                                '${AppRoutes.animalDetail(animalId)}/vaccinations/add',
+                                extra: entry.value.id,
+                              );
                             },
                           ),
                         ),

@@ -4,12 +4,18 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
-/// Gestion centralisée des notifications locales (rappels vaccins, RDV, traitements).
+// Import conditionnel : utilise dart:html sur web, stub sur mobile
+import 'web_notifications_stub.dart'
+    if (dart.library.html) 'web_notifications_impl.dart' as web_notif;
+
+/// Gestion centralisée des notifications.
 ///
-/// Sur Web : les notifications locales ne sont pas supportées par
-/// flutter_local_notifications. Toutes les méthodes retournent sans erreur
-/// (no-op) pour éviter tout crash. Sur mobile (Android/iOS), les notifications
-/// fonctionnent en foreground et background, mais PAS si l'app est tuée.
+/// - **Mobile** (Android/iOS) : notifications locales planifiées via
+///   `flutter_local_notifications`. Fonctionnent en foreground et background
+///   tant que l'app n'est pas tuée.
+/// - **Web** : utilise l'API Notification du navigateur (foreground uniquement).
+///   La planification (`schedule`) est ignorée sur web, mais `showNow` affiche
+///   bien une notification système.
 class NotificationService {
   NotificationService._();
 
@@ -22,7 +28,7 @@ class NotificationService {
       'Notifications pour vaccins, RDV, traitements et alertes santé';
 
   static Future<void> init() async {
-    if (kIsWeb) return; // flutter_local_notifications ne supporte pas le web
+    if (kIsWeb) return; // initialisation natif pas applicable sur web
 
     tz.initializeTimeZones();
 
@@ -51,7 +57,10 @@ class NotificationService {
   }
 
   static Future<void> requestPermissions() async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      await web_notif.webRequestPermission();
+      return;
+    }
     await Permission.notification.request();
   }
 
@@ -67,17 +76,24 @@ class NotificationService {
       );
 
   /// Affiche une notification immédiate.
+  /// Fonctionne sur mobile ET sur web (via API Notification du navigateur).
   static Future<void> showNow({
     required int id,
     required String title,
     required String body,
   }) async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      await web_notif.webShowNotification(title: title, body: body);
+      return;
+    }
     await _plugin.show(id, title, body, _details);
   }
 
   /// Programme une notification à une date/heure précise.
-  /// Ne fonctionne que sur Android/iOS avec l'app en arrière-plan.
+  /// Sur web : ignorée (les notifications planifiées nécessitent un Service Worker).
+  /// Sur mobile : utilise `inexactAllowWhileIdle` pour éviter le besoin de la
+  /// permission SCHEDULE_EXACT_ALARM (Android 13+) qui est restreinte aux apps
+  /// type réveil/calendrier.
   static Future<void> schedule({
     required int id,
     required String title,
@@ -93,7 +109,7 @@ class NotificationService {
       body,
       tzDate,
       _details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );

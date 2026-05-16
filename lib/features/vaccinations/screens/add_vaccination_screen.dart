@@ -18,7 +18,14 @@ const _autreVaccin = '__autre__';
 
 class AddVaccinationScreen extends ConsumerStatefulWidget {
   final String animalId;
-  const AddVaccinationScreen({super.key, required this.animalId});
+  /// Optionnel : ID d'un vaccin du référentiel à pré-sélectionner (utilisé
+  /// quand on arrive depuis l'écran "Vaccins recommandés").
+  final String? prefilledVaccinId;
+  const AddVaccinationScreen({
+    super.key,
+    required this.animalId,
+    this.prefilledVaccinId,
+  });
 
   @override
   ConsumerState<AddVaccinationScreen> createState() =>
@@ -36,6 +43,7 @@ class _AddVaccinationScreenState extends ConsumerState<AddVaccinationScreen> {
   DateTime _dateVaccination = DateTime.now();
   DateTime? _dateRappel;
   bool _saving = false;
+  bool _prefilledApplied = false;
 
   @override
   void dispose() {
@@ -163,7 +171,32 @@ class _AddVaccinationScreenState extends ConsumerState<AddVaccinationScreen> {
                   referencesAsync.when(
                     loading: () => const LinearProgressIndicator(),
                     error: (e, _) => Text('Erreur référentiel : $e'),
-                    data: (refs) => DropdownButtonFormField<String>(
+                    data: (refs) {
+                      // Pré-remplir si on vient de "Vaccins recommandés"
+                      if (!_prefilledApplied &&
+                          widget.prefilledVaccinId != null &&
+                          _selectedVaccin == null) {
+                        final match = refs.where(
+                            (r) => r.id == widget.prefilledVaccinId).firstOrNull;
+                        if (match != null) {
+                          _prefilledApplied = true;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            setState(() {
+                              _selectedVaccin = match;
+                              if (match.dureeValiditeMois != null) {
+                                _dateRappel = DateTime(
+                                  _dateVaccination.year,
+                                  _dateVaccination.month +
+                                      match.dureeValiditeMois!,
+                                  _dateVaccination.day,
+                                );
+                              }
+                            });
+                          });
+                        }
+                      }
+                      return DropdownButtonFormField<String>(
                       key: ValueKey(
                           _isCustomVaccin ? _autreVaccin : _selectedVaccin?.id),
                       initialValue:
@@ -213,7 +246,8 @@ class _AddVaccinationScreenState extends ConsumerState<AddVaccinationScreen> {
                       },
                       validator: (v) =>
                           v == null ? 'Sélectionne un vaccin' : null,
-                    ),
+                    );
+                    },
                   ),
                   // Champ texte pour vaccin personnalisé
                   if (_isCustomVaccin) ...[
